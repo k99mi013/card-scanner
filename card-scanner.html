@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>명함 스캐너 — 연락처에 바로 추가</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F5F1;
+    --paper-2:#EFEDE6;
+    --ink:#15171E;
+    --ink-soft:#5B5E68;
+    --line:#D9D6CC;
+    --scan:#0DAFA0;
+    --scan-dim:rgba(13,175,160,0.14);
+    --warn:#C2452B;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Mono', monospace;
+    min-height:100vh;
+    padding-bottom:96px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wrap{max-width:420px;margin:0 auto;padding:20px 18px 8px;}
+  .eyebrow{
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--scan);font-weight:600;margin:0 0 6px;
+  }
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:26px;font-weight:700;margin:0 0 4px;letter-spacing:-.01em;
+  }
+  .sub{font-size:13px;color:var(--ink-soft);margin:0 0 22px;line-height:1.55;}
+
+  .frame-stage{position:relative;width:100%;}
+  .frame{
+    position:relative;
+    width:100%;aspect-ratio:1.586/1;
+    border:1px dashed var(--line);
+    border-radius:var(--radius);
+    background:var(--paper-2);
+    overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .frame img{width:100%;height:100%;object-fit:cover;display:block;}
+  .frame.has-img{border-style:solid;border-color:var(--line);}
+  .frame-empty{
+    text-align:center;color:var(--ink-soft);font-size:12.5px;line-height:1.6;
+    padding:0 28px;
+  }
+  .frame-empty svg{margin-bottom:10px;opacity:.55;}
+  .corner{position:absolute;width:16px;height:16px;border:2px solid var(--scan);opacity:.85;}
+  .corner.tl{top:-1px;left:-1px;border-right:none;border-bottom:none;}
+  .corner.tr{top:-1px;right:-1px;border-left:none;border-bottom:none;}
+  .corner.bl{bottom:-1px;left:-1px;border-right:none;border-top:none;}
+  .corner.br{bottom:-1px;right:-1px;border-left:none;border-top:none;}
+
+  .scanline{
+    position:absolute;left:0;right:0;height:2px;
+    background:linear-gradient(90deg, transparent, var(--scan), transparent);
+    box-shadow:0 0 12px var(--scan);
+    top:0; display:none;
+  }
+  .scanning .scanline{display:block;animation:sweep 1.4s ease-in-out infinite;}
+  .scanning .frame{box-shadow:0 0 0 1px var(--scan-dim) inset;}
+  @keyframes sweep{
+    0%{top:0%;opacity:.2;}
+    50%{top:100%;opacity:1;}
+    100%{top:0%;opacity:.2;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .scanline{animation:none!important;display:none!important;}
+  }
+
+  .badge-back{
+    position:absolute;top:8px;right:8px;background:var(--ink);color:var(--paper);
+    font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;
+    border-radius:2px;opacity:.85;
+  }
+
+  .row{display:flex;gap:8px;margin-top:12px;}
+  button{font-family:inherit;cursor:pointer;border:none;}
+  .btn{
+    flex:1;font-size:13px;font-weight:600;padding:13px 10px;border-radius:var(--radius);
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    font-family:'Space Grotesk',sans-serif;letter-spacing:.01em;
+  }
+  .btn-primary{background:var(--ink);color:var(--paper);}
+  .btn-primary:active{opacity:.85;}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
+  .btn-ghost:active{background:var(--paper-2);}
+  .btn:disabled{opacity:.5;cursor:default;}
+
+  .scan-cta{
+    margin-top:14px;width:100%;background:var(--scan);color:#06231f;
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14.5px;
+    padding:14px;border-radius:var(--radius);
+  }
+  .scan-cta:disabled{opacity:.55;}
+
+  .link-row{margin-top:14px;text-align:center;}
+  .link-btn{
+    background:none;color:var(--ink-soft);font-size:12px;text-decoration:underline;
+    text-underline-offset:2px;padding:6px;
+  }
+
+  .msg{font-size:12.5px;line-height:1.5;margin-top:10px;padding:10px 12px;border-radius:var(--radius);}
+  .msg.warn{background:#F8E9E4;color:var(--warn);}
+  .msg.note{background:var(--paper-2);color:var(--ink-soft);}
+
+  .section-title{
+    font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);
+    margin:30px 0 12px;display:flex;align-items:center;gap:8px;
+  }
+  .section-title::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  .field{margin-bottom:16px;}
+  .field label{
+    display:block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);margin-bottom:5px;font-weight:600;
+  }
+  .field input{
+    width:100%;font-family:'IBM Plex Mono',monospace;font-size:15px;color:var(--ink);
+    background:transparent;border:none;border-bottom:1px solid var(--line);
+    padding:6px 2px;outline:none;
+  }
+  .field input:focus{border-bottom:2px solid var(--scan);padding-bottom:5px;}
+  .field input::placeholder{color:#B8B5AC;}
+
+  .fields-note{font-size:11.5px;color:var(--ink-soft);margin:-2px 0 18px;line-height:1.5;}
+
+  .bottom-bar{
+    position:fixed;left:0;right:0;bottom:0;
+    background:linear-gradient(to top, var(--paper) 60%, transparent);
+    padding:14px 18px 18px;
+  }
+  .bottom-bar-inner{max-width:420px;margin:0 auto;}
+  .add-cta{
+    width:100%;background:var(--ink);color:var(--paper);
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;
+    padding:15px;border-radius:var(--radius);
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .add-cta:active{opacity:.85;}
+  .status-line{text-align:center;font-size:11.5px;color:var(--ink-soft);margin-top:8px;line-height:1.5;}
+
+  input[type=file]{display:none;}
+
+  .keypanel{
+    margin-top:22px;border:1px solid var(--line);border-radius:var(--radius);
+    padding:10px 12px;background:var(--paper-2);
+  }
+  .keypanel summary{
+    font-size:12px;color:var(--ink-soft);cursor:pointer;font-weight:600;
+    letter-spacing:.02em;
+  }
+  .keypanel-note{font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin:10px 0;}
+  .keypanel-note a{color:var(--scan);}
+  #apiKeyInput{
+    width:100%;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink);
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    padding:9px 10px;outline:none;
+  }
+  #apiKeyInput:focus{border-color:var(--scan);}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p class="eyebrow">Business card → contacts</p>
+  <h1>명함 스캐너</h1>
+  <p class="sub">명함을 촬영하면 이름·회사·연락처를 읽어서 iOS/Android 연락처 앱에 바로 추가할 수 있어요.</p>
+
+  <div class="frame-stage" id="stage">
+    <div class="frame" id="frame">
+      <div class="frame-empty" id="frameEmpty">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="6" width="18" height="13" rx="2"/><circle cx="12" cy="12.5" r="3"/><path d="M9 6l1-2h4l1 2"/></svg>
+        <div>명함 앞면을 촬영하거나<br/>사진을 선택하세요</div>
+      </div>
+      <img id="frontImg" style="display:none" />
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+    </div>
+    <div class="scanline"></div>
+  </div>
+
+  <div class="row">
+    <button class="btn btn-primary" id="captureBtn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span id="captureBtnLabel">앞면 촬영/선택</span>
+    </button>
+    <button class="btn btn-ghost" id="backBtn" style="display:none">뒷면 추가</button>
+  </div>
+
+  <button class="scan-cta" id="scanBtn" style="display:none">인식하기</button>
+
+  <div class="link-row">
+    <button class="link-btn" id="manualBtn">사진 없이 직접 입력</button>
+    <button class="link-btn" id="testBtn" style="margin-left:10px">연결 테스트</button>
+  </div>
+
+  <div id="msgBox"></div>
+
+  <details class="keypanel">
+    <summary>API 키 직접 입력 (인식이 계속 안 될 때)</summary>
+    <p class="keypanel-note">
+      "연결 테스트"가 계속 실패하면, 이 앱 안에서 Claude를 무료로 호출하는 기능이 막혀있는 경우예요.
+      <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>에서
+      직접 발급한 API 키를 아래에 넣으면 그 키로 바로 호출해요. 키는 저장되지 않고 이 화면을 새로고침하면 사라져요.
+    </p>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+  </details>
+
+  <div id="resultArea" style="display:none">
+    <div class="section-title">인식된 정보</div>
+    <p class="fields-note">OCR 결과는 틀릴 수 있어요. 저장 전에 한 번씩 확인해주세요.</p>
+
+    <div class="field"><label>이름</label><input id="f_name" placeholder="홍길동" /></div>
+    <div class="field"><label>회사</label><input id="f_company" placeholder="회사명" /></div>
+    <div class="field"><label>직책</label><input id="f_title" placeholder="직책 / 부서" /></div>
+    <div class="field"><label>휴대전화</label><input id="f_mobile" type="tel" placeholder="010-0000-0000" /></div>
+    <div class="field"><label>회사 전화</label><input id="f_office" type="tel" placeholder="02-000-0000" /></div>
+    <div class="field"><label>팩스</label><input id="f_fax" type="tel" placeholder="" /></div>
+    <div class="field"><label>이메일</label><input id="f_email" type="email" placeholder="name@company.com" /></div>
+    <div class="field"><label>주소</label><input id="f_address" placeholder="" /></div>
+    <div class="field"><label>웹사이트</label><input id="f_website" placeholder="company.com" /></div>
+  </div>
+</div>
+
+<div class="bottom-bar" id="bottomBar" style="display:none">
+  <div class="bottom-bar-inner">
+    <button class="add-cta" id="addBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+      연락처에 추가
+    </button>
+    <p class="status-line" id="statusLine"></p>
+  </div>
+</div>
+
+<input type="file" id="frontInput" accept="image/*" capture="environment" />
+<input type="file" id="backInput" accept="image/*" capture="environment" />
+
+<script>
+const state = {
+  frontDataUrl: null,
+  backDataUrl: null,
+  fields: { name:'', company:'', title:'', mobile:'', office:'', fax:'', email:'', address:'', website:'' }
+};
+
+const el = id => document.getElementById(id);
+const frame = el('frame'), frameEmpty = el('frameEmpty'), frontImg = el('frontImg');
+const stage = el('stage');
+const captureBtn = el('captureBtn'), captureBtnLabel = el('captureBtnLabel');
+const backBtn = el('backBtn'), scanBtn = el('scanBtn');
+const frontInput = el('frontInput'), backInput = el('backInput');
+const resultArea = el('resultArea'), bottomBar = el('bottomBar');
+const msgBox = el('msgBox'), statusLine = el('statusLine');
+const manualBtn = el('manualBtn'), addBtn = el('addBtn'), testBtn = el('testBtn');
+const apiKeyInput = el('apiKeyInput');
+
+function callClaude(body){
+  const key = apiKeyInput.value.trim();
+  const headers = { 'Content-Type':'application/json' };
+  if(key){
+    headers['x-api-key'] = key;
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  }
+  return fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers,
+    body: JSON.stringify(body)
+  });
+}
+
+const fieldIds = ['name','company','title','mobile','office','fax','email','address','website'];
+
+function showMsg(text, type){
+  msgBox.innerHTML = text ? `<div class="msg ${type||'note'}">${text}</div>` : '';
+}
+
+function fileToDataUrl(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// 휴대폰 카메라 원본은 (1) EXIF 방향 정보 때문에 옆으로 눕혀져 디코딩되거나
+// (2) 용량이 너무 커서(8~12MB) API 전송/인식에 실패하는 경우가 많아,
+// 캔버스에 다시 그려서 방향을 보정하고 적절한 크기로 줄여 JPEG로 재인코딩한다.
+async function processImage(file, maxDim = 1568, quality = 0.85){
+  try{
+    let bitmap;
+    try{
+      // imageOrientation:'from-image' 가 EXIF 회전을 자동으로 반영해준다 (iOS 15+/최신 Android Chrome)
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    }catch(_){
+      bitmap = await createImageBitmap(file);
+    }
+    let { width, height } = bitmap;
+    if(width > maxDim || height > maxDim){
+      if(width > height){ height = Math.round(height * maxDim / width); width = maxDim; }
+      else { width = Math.round(width * maxDim / height); height = maxDim; }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', quality);
+  }catch(err){
+    console.warn('이미지 보정 실패, 원본 사용', err);
+    return await fileToDataUrl(file);
+  }
+}
+
+captureBtn.addEventListener('click', () => frontInput.click());
+backBtn.addEventListener('click', () => backInput.click());
+
+frontInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  captureBtnLabel.textContent = '처리 중…';
+  state.frontDataUrl = await processImage(file);
+  frontImg.src = state.frontDataUrl;
+  frontImg.style.display = 'block';
+  frameEmpty.style.display = 'none';
+  frame.classList.add('has-img');
+  captureBtnLabel.textContent = '앞면 다시 촬영';
+  backBtn.style.display = 'inline-flex';
+  scanBtn.style.display = 'block';
+  showMsg('');
+});
+
+backInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  state.backDataUrl = await processImage(file);
+  backBtn.textContent = '뒷면 ✓ 다시 촬영';
+  if(!frame.querySelector('.badge-back')){
+    const b = document.createElement('div');
+    b.className = 'badge-back';
+    b.textContent = '+뒷면';
+    frame.appendChild(b);
+  }
+});
+
+manualBtn.addEventListener('click', () => {
+  resultArea.style.display = 'block';
+  bottomBar.style.display = 'block';
+  showMsg('');
+  window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
+});
+
+testBtn.addEventListener('click', async () => {
+  testBtn.disabled = true;
+  testBtn.textContent = '테스트 중…';
+  showMsg('');
+  try{
+    const resp = await callClaude({
+      model:'claude-sonnet-4-6',
+      max_tokens:50,
+      messages:[{ role:'user', content:'1+1은 얼마인가요? 숫자만 답하세요.' }]
+    });
+    const rawBody = await resp.text();
+    console.log('[card-scanner] test raw', resp.status, rawBody.slice(0,500));
+    if(!resp.ok){
+      showMsg(`연결 테스트 실패 (HTTP ${resp.status}): ${rawBody.slice(0,150)}`, 'warn');
+      return;
+    }
+    const data = JSON.parse(rawBody);
+    const t = (data.content || []).find(b => b.type === 'text');
+    showMsg('연결 테스트 성공 — 응답: "' + (t ? t.text.trim().slice(0,40) : '(텍스트 없음)') + '". 텍스트는 되는데 사진 인식만 실패한다면 이미지 쪽 문제예요.', 'note');
+  }catch(e){
+    console.error('[card-scanner] test error', e);
+    showMsg('연결 테스트 자체가 실패했어요: ' + (e && e.message) + '. 이건 사진과 무관하게 API 연결 단계의 문제예요.', 'warn');
+  }finally{
+    testBtn.disabled = false;
+    testBtn.textContent = '연결 테스트';
+  }
+});
+
+function dataUrlParts(dataUrl){
+  const m = dataUrl.match(/^data:(.+);base64,(.*)$/);
+  return { mediaType: m[1], data: m[2] };
+}
+
+async function recognizeCard(includeBack){
+  const content = [];
+  const front = dataUrlParts(state.frontDataUrl);
+  content.push({ type:'image', source:{ type:'base64', media_type:front.mediaType, data:front.data } });
+  if(includeBack && state.backDataUrl){
+    const back = dataUrlParts(state.backDataUrl);
+    content.push({ type:'image', source:{ type:'base64', media_type:back.mediaType, data:back.data } });
+  }
+  content.push({ type:'text', text:
+`이미지는 명함(business card) 사진입니다${includeBack && state.backDataUrl ? ' (앞면, 뒷면 순서)' : ''}. 여기서 연락처 정보를 추출해서 아래 JSON 형식으로만, 다른 설명이나 코드블록 표시 없이 순수 JSON 객체 하나만 응답하세요.
+
+{"name":"","company":"","title":"","mobile":"","office":"","fax":"","email":"","address":"","website":""}
+
+규칙:
+- 정보가 없으면 빈 문자열로 둡니다.
+- 전화번호는 명함에 적힌 하이픈/국가번호 표기를 그대로 유지합니다.
+- 사람 이름이 한글/영문 모두 있으면 한글 이름을 사용합니다.
+- 직책과 회사명을 혼동하지 마세요.
+- 이메일은 소문자로 정규화합니다.
+- 웹사이트는 도메인만 적어도 됩니다 (http:// 없어도 됨).`
+  });
+
+  const resp = await callClaude({
+    model:'claude-sonnet-4-6',
+    max_tokens:1000,
+    messages:[{ role:'user', content }]
+  });
+
+  const rawBody = await resp.text();
+  console.log('[card-scanner] raw response', resp.status, rawBody.slice(0, 2000));
+
+  if(!resp.ok){
+    let detail = 'HTTP ' + resp.status;
+    try{
+      const errJson = JSON.parse(rawBody);
+      if(errJson && errJson.error && errJson.error.message) detail = errJson.error.message;
+    }catch(_){
+      if(rawBody) detail += ' — ' + rawBody.slice(0, 100);
+    }
+    throw new Error(detail);
+  }
+
+  let data;
+  try{
+    data = JSON.parse(rawBody);
+  }catch(e){
+    throw new Error('응답을 해석할 수 없어요: ' + rawBody.slice(0, 100));
+  }
+
+  const textBlock = (data.content || []).find(b => b.type === 'text');
+  if(!textBlock) throw new Error('응답에 텍스트가 없어요: ' + JSON.stringify(data).slice(0, 150));
+  let raw = textBlock.text.trim();
+  raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if(!jsonMatch) throw new Error('JSON 형식을 찾지 못했어요: ' + raw.slice(0, 80));
+  try{
+    return JSON.parse(jsonMatch[0]);
+  }catch(e){
+    throw new Error('JSON 파싱 오류: ' + e.message);
+  }
+}
+
+function fillFields(obj){
+  fieldIds.forEach(k => {
+    state.fields[k] = obj[k] || '';
+    el('f_' + k).value = state.fields[k];
+  });
+}
+
+scanBtn.addEventListener('click', async () => {
+  scanBtn.disabled = true;
+  scanBtn.textContent = '스캔 중…';
+  stage.classList.add('scanning');
+  showMsg('');
+  try{
+    let result;
+    try{
+      result = await recognizeCard(true);
+    }catch(firstErr){
+      if(state.backDataUrl){
+        console.warn('[card-scanner] 1차 시도 실패, 뒷면 제외 재시도', firstErr);
+        result = await recognizeCard(false);
+      } else {
+        throw firstErr;
+      }
+    }
+    fillFields(result);
+    resultArea.style.display = 'block';
+    bottomBar.style.display = 'block';
+    const missing = fieldIds.filter(k => !result[k]);
+    if(missing.length >= 6){
+      showMsg('명함에서 정보를 거의 읽지 못했어요. 더 밝은 곳에서 다시 찍거나 직접 입력해주세요.', 'warn');
+    }
+    window.scrollTo({top: document.body.scrollHeight * 0.4, behavior:'smooth'});
+  }catch(err){
+    console.error(err);
+    fillFields({});
+    resultArea.style.display = 'block';
+    bottomBar.style.display = 'block';
+    const detail = (err && err.message) ? err.message : '알 수 없는 오류';
+    showMsg(`인식에 실패했어요. (${detail})<br/>사진을 다시 찍거나 아래 항목을 직접 입력해주세요.`, 'warn');
+  }finally{
+    scanBtn.disabled = false;
+    scanBtn.textContent = '인식하기';
+    stage.classList.remove('scanning');
+  }
+});
+
+fieldIds.forEach(k => {
+  el('f_' + k).addEventListener('input', (e) => { state.fields[k] = e.target.value; });
+});
+
+function escapeVCard(str){
+  return (str || '').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');
+}
+
+function buildVCard(){
+  const f = state.fields;
+  const fn = f.name || f.company || '새 연락처';
+  const lines = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `N:;${escapeVCard(f.name)};;;`,
+    `FN:${escapeVCard(fn)}`,
+  ];
+  if(f.company) lines.push(`ORG:${escapeVCard(f.company)}`);
+  if(f.title) lines.push(`TITLE:${escapeVCard(f.title)}`);
+  if(f.mobile) lines.push(`TEL;TYPE=CELL:${escapeVCard(f.mobile)}`);
+  if(f.office) lines.push(`TEL;TYPE=WORK,VOICE:${escapeVCard(f.office)}`);
+  if(f.fax) lines.push(`TEL;TYPE=FAX:${escapeVCard(f.fax)}`);
+  if(f.email) lines.push(`EMAIL;TYPE=INTERNET:${escapeVCard(f.email)}`);
+  if(f.address) lines.push(`ADR;TYPE=WORK:;;${escapeVCard(f.address)};;;;`);
+  if(f.website){
+    const url = /^https?:\/\//i.test(f.website) ? f.website : 'https://' + f.website;
+    lines.push(`URL:${escapeVCard(url)}`);
+  }
+  lines.push('NOTE:명함 스캐너로 인식한 연락처입니다.');
+  lines.push('END:VCARD');
+  return lines.join('\r\n');
+}
+
+function isIOS(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+addBtn.addEventListener('click', async () => {
+  const vcard = buildVCard();
+  const filename = ((state.fields.name || state.fields.company || 'contact').trim().replace(/\s+/g,'_')) + '.vcf';
+  statusLine.textContent = '';
+
+  try{
+    const file = new File([vcard], filename, { type:'text/vcard' });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file] });
+      statusLine.textContent = '공유 메뉴에서 "연락처에 저장"을 선택하세요.';
+      return;
+    }
+  }catch(e){
+    if(e && e.name === 'AbortError') { return; }
+  }
+
+  if(isIOS()){
+    statusLine.textContent = '열리는 화면에서 "연락처에 추가"를 눌러주세요.';
+    const a = document.createElement('a');
+    a.href = 'data:text/vcard;charset=utf-8,' + encodeURIComponent(vcard);
+    a.target = '_top';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 1000);
+  } else {
+    const blob = new Blob([vcard], { type:'text/vcard' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    statusLine.textContent = '다운로드된 파일을 열면 연락처 앱에 추가할 수 있어요.';
+  }
+});
+</script>
+</body>
+</html>

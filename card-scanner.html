@@ -170,6 +170,8 @@
     padding:9px 10px;outline:none;
   }
   #apiKeyInput:focus{border-color:var(--scan);}
+  .keypanel-status{font-size:11px;color:var(--warn);margin:7px 2px 0;}
+  .keypanel-status.ok{color:var(--scan);}
 </style>
 </head>
 <body>
@@ -217,6 +219,7 @@
       직접 발급한 API 키를 아래에 넣으면 그 키로 바로 호출해요. 키는 저장되지 않고 이 화면을 새로고침하면 사라져요.
     </p>
     <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+    <p class="keypanel-status" id="keyStatus">키가 입력되지 않았어요 — 이 상태로는 호출이 막힌 채로 시도됩니다.</p>
   </details>
 
   <div id="resultArea" style="display:none">
@@ -265,9 +268,26 @@ const resultArea = el('resultArea'), bottomBar = el('bottomBar');
 const msgBox = el('msgBox'), statusLine = el('statusLine');
 const manualBtn = el('manualBtn'), addBtn = el('addBtn'), testBtn = el('testBtn');
 const apiKeyInput = el('apiKeyInput');
+const keyStatus = el('keyStatus');
+
+function refreshKeyStatus(){
+  const key = getApiKey();
+  if(key){
+    keyStatus.textContent = `키 입력됨 (${key.length}자, ${key.slice(0,10)}…) — 이 키로 직접 호출해요.`;
+    keyStatus.classList.add('ok');
+  } else {
+    keyStatus.textContent = '키가 입력되지 않았어요 — 이 상태로는 호출이 막힌 채로 시도됩니다.';
+    keyStatus.classList.remove('ok');
+  }
+}
+apiKeyInput.addEventListener('input', refreshKeyStatus);
+
+function getApiKey(){
+  return apiKeyInput.value.replace(/\s+/g, '');
+}
 
 function callClaude(body){
-  const key = apiKeyInput.value.trim();
+  const key = getApiKey();
   const headers = { 'Content-Type':'application/json' };
   if(key){
     headers['x-api-key'] = key;
@@ -366,6 +386,8 @@ testBtn.addEventListener('click', async () => {
   testBtn.disabled = true;
   testBtn.textContent = '테스트 중…';
   showMsg('');
+  const usingKey = !!getApiKey();
+  const modeLabel = usingKey ? '[내 API 키 사용]' : '[키 없이 시도]';
   try{
     const resp = await callClaude({
       model:'claude-sonnet-4-6',
@@ -375,15 +397,15 @@ testBtn.addEventListener('click', async () => {
     const rawBody = await resp.text();
     console.log('[card-scanner] test raw', resp.status, rawBody.slice(0,500));
     if(!resp.ok){
-      showMsg(`연결 테스트 실패 (HTTP ${resp.status}): ${rawBody.slice(0,150)}`, 'warn');
+      showMsg(`${modeLabel} 연결 테스트 실패 (HTTP ${resp.status}): ${rawBody.slice(0,150)}`, 'warn');
       return;
     }
     const data = JSON.parse(rawBody);
     const t = (data.content || []).find(b => b.type === 'text');
-    showMsg('연결 테스트 성공 — 응답: "' + (t ? t.text.trim().slice(0,40) : '(텍스트 없음)') + '". 텍스트는 되는데 사진 인식만 실패한다면 이미지 쪽 문제예요.', 'note');
+    showMsg(`${modeLabel} 연결 테스트 성공 — 응답: "` + (t ? t.text.trim().slice(0,40) : '(텍스트 없음)') + '"', 'note');
   }catch(e){
     console.error('[card-scanner] test error', e);
-    showMsg('연결 테스트 자체가 실패했어요: ' + (e && e.message) + '. 이건 사진과 무관하게 API 연결 단계의 문제예요.', 'warn');
+    showMsg(`${modeLabel} 연결 테스트 자체가 실패했어요: ` + (e && e.message) + (usingKey ? ' (키를 넣었는데도 실패 — 키 형식이나 크레딧을 확인해줘)' : ' (키 없이는 이 호출이 막혀있을 수 있어요. 위 패널에 API 키를 넣고 다시 시도해줘)'), 'warn');
   }finally{
     testBtn.disabled = false;
     testBtn.textContent = '연결 테스트';
